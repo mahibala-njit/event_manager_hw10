@@ -45,7 +45,6 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
-
 @pytest.fixture
 def email_service():
     # Assuming the TemplateManager does not need any arguments for initialization
@@ -215,6 +214,7 @@ async def manager_user(db_session: AsyncSession):
 @pytest.fixture
 def user_base_data():
     return {
+        "nickname": "john_doe",
         "username": "john_doe_123",
         "email": "john.doe@example.com",
         "full_name": "John Doe",
@@ -241,6 +241,7 @@ def user_create_data(user_base_data):
 def user_update_data():
     return {
         "email": "john.doe.new@example.com",
+        "first_name": "John",
         "full_name": "John H. Doe",
         "bio": "I specialize in backend development with Python and Node.js.",
         "profile_picture_url": "https://example.com/profile_pictures/john_doe_updated.jpg"
@@ -249,7 +250,7 @@ def user_update_data():
 @pytest.fixture
 def user_response_data():
     return {
-        "id": "unique-id-string",
+        "id": uuid4(),
         "username": "testuser",
         "email": "test@example.com",
         "last_login_at": datetime.now(),
@@ -260,4 +261,27 @@ def user_response_data():
 
 @pytest.fixture
 def login_request_data():
-    return {"username": "john_doe_123", "password": "SecurePassword123!"}
+    return {"email": "john_doe@example.com", "password": "SecurePassword123!"}
+
+# Token Fixtures
+
+@pytest.fixture
+async def user_token(verified_user):
+    """Generates a token for a verified user."""
+    token_data = {"sub": str(verified_user.id), "role": "AUTHENTICATED"}
+    return create_access_token(data=token_data)
+
+
+@pytest.fixture
+async def admin_token(admin_user):
+    """Generates a token for an admin user."""
+    token_data = {"sub": str(admin_user.id), "role": "ADMIN"}
+    return create_access_token(data=token_data)
+
+
+@pytest.fixture
+async def manager_token(manager_user):
+    """Generates a token for a manager user."""
+    token_data = {"sub": str(manager_user.id), "role": "MANAGER"}
+    return create_access_token(data=token_data)
+    
