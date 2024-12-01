@@ -45,7 +45,6 @@ engine = create_async_engine(TEST_DATABASE_URL, echo=settings.debug)
 AsyncTestingSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 AsyncSessionScoped = scoped_session(AsyncTestingSessionLocal)
 
-
 @pytest.fixture
 def email_service():
     # Assuming the TemplateManager does not need any arguments for initialization
@@ -261,3 +260,26 @@ def user_response_data():
 @pytest.fixture
 def login_request_data():
     return {"username": "john_doe_123", "password": "SecurePassword123!"}
+
+# Token Fixtures
+
+@pytest.fixture
+async def user_token(verified_user):
+    """Generates a token for a verified user."""
+    token_data = {"sub": str(verified_user.id), "role": "AUTHENTICATED"}
+    return create_access_token(data=token_data)
+
+
+@pytest.fixture
+async def admin_token(admin_user):
+    """Generates a token for an admin user."""
+    token_data = {"sub": str(admin_user.id), "role": "ADMIN"}
+    return create_access_token(data=token_data)
+
+
+@pytest.fixture
+async def manager_token(manager_user):
+    """Generates a token for a manager user."""
+    token_data = {"sub": str(manager_user.id), "role": "MANAGER"}
+    return create_access_token(data=token_data)
+    
