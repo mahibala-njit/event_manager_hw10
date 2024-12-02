@@ -29,7 +29,10 @@ docker compose exec fastapi pytest tests
 - Incorrect or missing environment variables.
 - Application bugs affecting test outcomes.
 
-2. **Resolution Steps**:
+2. **Expected Outcome**:
+- All pytests to pass successfully
+
+3. **Resolution Steps**:
 - Identified the failing tests by running the below
 ```bash
 docker compose exec fastapi pytest tests
@@ -41,10 +44,7 @@ docker compose exec fastapi pytest tests
 - Found issue with SMTP server not configured for email testing, Raised an Issue
 - Fixed all the identified and reran tests
 
-3. **Expected Outcome**:
-- All pytests to pass successfully
-
-3. **Tests**:
+4. **Tests**:
 Reran the tests using the below
 ```bash
 docker compose exec fastapi pytest tests
@@ -59,10 +59,13 @@ FAILED tests/test_email.py::test_send_markdown_email - smtplib.SMTPServerDisconn
 FAILED tests/test_services/test_user_service.py::test_create_user_with_valid_data - smtplib.SMTPServerDisconnected: Connection unexpectedly closed
 FAILED tests/test_services/test_user_service.py::test_register_user_with_valid_data - smtplib.SMTPServerDisconnected: Connection unexpectedly closed
 
-2. **Resolution Steps**: 
+2. **Expected Outcome**:
+The project is to be configured to send test emails using Mailtrap, enabling smoother development and debugging. run pytests that were failing due to SMTP issues and ensure successful run.
+
+3. **Resolution Steps**: 
 Setting up Mailtrap to enable local email testing will resolve the issue.
 
-- Step 1: Set Up a Mailtrap Account
+- Set Up a Mailtrap Account
 Go to Mailtrap and create an account if you don’t have one.
 After logging in: Create a new inbox or use the default one.
 Copy the SMTP credentials (host, port, username, password)
@@ -77,12 +80,35 @@ smtp_password=
 
 - Check Mailtrap Inbox: Log in to Mailtrap and verify that emails appear in the specified inbox.
 
-3. **Expected Outcome**:
-The project is to be configured to send test emails using Mailtrap, enabling smoother development and debugging. run pytests that were failing due to SMTP issues and ensure successful run.
+4. **Tests**:
+- Test Email Service
+![alt text](image-1.png)
+- Test User Service
+![alt text](image-2.png)
+
+## Issue 3 : Fix SMTP Server Configuration Issues
+
+1. **Description**: The current nickname validation allows underscores and hyphens. However, additional constraints are required:
+
+- The nickname should not start with a number.
+- Maximum length of 30 characters.
+- Allow only alphanumeric characters, underscores (_), and hyphens (-).
+
+2. **Expected Outcome**:
+
+- Valid Nicknames: Nicknames such as john_doe, Test-User, and username123 should be accepted during user creation or update.
+- Invalid Nicknames: Nicknames like 123username, invalid!, or toolong_nickname_that_exceeds_30_chars should be rejected.
+- Validation Error Messages: Users attempting to create or update nicknames with invalid formats should get an error
+
+3. **Resolution Steps**: 
+
+- Added a helper function validate_nickname in user_schemas.py to encapsulate nickname validation logic
+- Applied the validate_nickname function to relevant fields in UserBase, UserResponse and UserUpdate schemas using Pydantic validators. Added a @validator("nickname") decorator for runtime validation.
+- Updated Tests - Extended test cases in tests/test_schemas/test_user_schemas.py to cover valid and invalid nickname scenarios
 
 4. **Tests**:
-Test Email Service
-![alt text](image-1.png)
-
-Test User Service
-![alt text](image-2.png)
+Reran the tests using the below and the entire pytests, all ran successfully.
+```bash
+docker compose exec fastapi pytest tests/test_schemas/test_user_schemas.py
+```
+![alt text](image-3.png)

@@ -96,9 +96,20 @@ class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     email: EmailStr = Field(..., example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())    
+    nickname: Optional[str] = Field(
+        None,
+        example=generate_nickname(),
+        min_length=3,
+        max_length=30
+    )  
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     is_professional: Optional[bool] = Field(default=False, example=True)
+
+    @validator("nickname", pre=True, always=True)
+    def validate_nickname_field(cls, value):
+        if value:
+            return validate_nickname(value)
+        return value
 
 class LoginRequest(BaseModel):
     email: str = Field(..., example="john.doe@example.com")
