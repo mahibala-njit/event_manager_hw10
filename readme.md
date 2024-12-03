@@ -86,7 +86,7 @@ smtp_password=
 - Test User Service
 ![alt text](image-2.png)
 
-## Issue 3 : Fix SMTP Server Configuration Issues
+## Issue 3 : Enhance Username Validation
 
 1. **Description**: The current nickname validation allows underscores and hyphens. However, additional constraints are required:
 
@@ -112,3 +112,26 @@ Reran the tests using the below and the entire pytests, all ran successfully.
 docker compose exec fastapi pytest tests/test_schemas/test_user_schemas.py
 ```
 ![alt text](image-3.png)
+
+## Issue 4 : Ensure Username Uniqueness
+
+1. **Description**: The system must ensure that every username (or nickname) within the application is unique. When creating or updating a user, duplicate nicknames must be prevented. Failure to enforce this uniqueness can lead to conflicting user profiles, incorrect authentication behavior, and poor user experience.
+
+2. **Expected Outcome**:
+
+- User Creation: If a user attempts to register with a nickname already in use, the API should return a 400 Bad Request error with an appropriate error message ("Nickname already exists"). A unique nickname should be auto-generated if none is provided during registration.
+- User Update: If an update includes a duplicate nickname, the API should reject the request with a 400 Bad Request error. If the nickname belongs to the user making the update, it should allow the operation.
+- Database Enforcement: The nickname field in the database must be unique, ensuring no duplicates can exist at the database level. This was already implemented.
+
+3. **Resolution Steps**: 
+
+- In the UserService.create method: Check if the nickname exists before creating a new user. If a duplicate is found, log the error and return a 400 error.
+- In the UserService.update method: Ensure the new nickname doesn’t belong to another user. Allow the operation if the nickname belongs to the same user being updated.
+- Adjust API Endpoints: User Creation: Validate nickname uniqueness and return an appropriate error response if a duplicate is detected. User Update: Ensure nickname uniqueness before applying updates.
+
+4. **Tests**:
+Reran the tests using the below and the entire pytests, all ran successfully.
+```bash
+docker compose exec fastapi pytest tests
+```
+![alt text](image-4.png)
