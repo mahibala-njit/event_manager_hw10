@@ -1,9 +1,12 @@
 from builtins import range
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import AsyncMock
 from app.dependencies import get_settings
 from app.models.user_model import User
 from app.services.user_service import UserService
+from app.schemas.user_schemas import UserCreate, UserUpdate
 
 pytestmark = pytest.mark.asyncio
 
@@ -156,3 +159,93 @@ async def test_unlock_user_account(db_session, locked_user):
     assert unlocked, "The account should be unlocked"
     refreshed_user = await UserService.get_by_id(db_session, locked_user.id)
     assert not refreshed_user.is_locked, "The user should no longer be locked"
+
+@pytest.mark.asyncio
+async def test_create_user_with_unique_nickname(db_session: AsyncSession, email_service):
+    """Test user creation with a unique nickname."""
+    user_data = {
+        "email": "unique@example.com",
+        "password": "SecurePassword123!",
+        "nickname": "unique_nickname"
+    }
+
+    new_user = await UserService.create(db_session, user_data, email_service)
+    assert new_user is not None
+    assert new_user.nickname == "unique_nickname"
+    assert new_user.email == "unique@example.com"
+
+
+@pytest.mark.asyncio
+async def test_create_user_with_duplicate_nickname(db_session: AsyncSession, email_service, user):
+    """Test user creation with a duplicate nickname fails."""
+    user_data = {
+        "email": "newuser@example.com",
+        "password": "SecurePassword123!",
+        "nickname": user.nickname  # Use an existing nickname
+    }
+
+    result = await UserService.create(db_session, user_data, email_service)
+    assert result is None, "Creation should fail for duplicate nickname."
+
+
+@pytest.mark.asyncio
+async def test_create_user_with_auto_generated_unique_nickname(db_session: AsyncSession, email_service):
+    """Test user creation with an auto-generated unique nickname."""
+    user_data = {
+        "email": "autogen@example.com",
+        "password": "SecurePassword123!"
+    }
+
+    new_user = await UserService.create(db_session, user_data, email_service)
+    assert new_user is not None
+    assert new_user.nickname is not None
+    assert new_user.email == "autogen@example.com"
+
+
+@pytest.mark.asyncio
+async def test_update_user_with_unique_nickname(db_session: AsyncSession, user):
+    """Test updating user with a unique nickname."""
+    updated_data = {
+        "nickname": "new_unique_nickname"
+    }
+
+    updated_user = await UserService.update(db_session, user.id, updated_data)
+    assert updated_user is not None
+    assert updated_user.nickname == "new_unique_nickname"
+
+
+@pytest.mark.asyncio
+async def test_update_user_with_duplicate_nickname(db_session: AsyncSession, user, another_user):
+    """Test updating user with a duplicate nickname fails."""
+    updated_data = {
+        "nickname": another_user.nickname  # Use an existing nickname
+    }
+
+    result = await UserService.update(db_session, user.id, updated_data)
+    assert result is None, "Update should fail for duplicate nickname."
+
+
+@pytest.mark.asyncio
+async def test_create_user_fails_for_duplicate_email(db_session: AsyncSession, user, email_service):
+    """Test user creation fails if the email already exists."""
+    user_data = {
+        "email": user.email,  # Use an existing email
+        "password": "SecurePassword123!",
+        "nickname": "unique_nickname"
+    }
+
+    result = await UserService.create(db_session, user_data, email_service)
+    assert result is None, "Creation should fail for duplicate email."
+
+
+@pytest.mark.asyncio
+async def test_create_user_successful_with_no_nickname(db_session: AsyncSession, email_service):
+    """Test user creation succeeds with no nickname provided."""
+    user_data = {
+        "email": "nonickname@example.com",
+        "password": "SecurePassword123!"
+    }
+
+    new_user = await UserService.create(db_session, user_data, email_service)
+    assert new_user is not None
+    assert new_user.nickname is not None  # Nickname should be auto-generated

@@ -19,6 +19,8 @@ import logging
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
+
+
 class UserService:
     @classmethod
     async def _execute_query(cls, session: AsyncSession, query):
@@ -53,22 +55,40 @@ class UserService:
     async def create(cls, session: AsyncSession, user_data: Dict[str, str], email_service: EmailService) -> Optional[User]:
         try:
             validated_data = UserCreate(**user_data).model_dump()
+
+            # Check for existing email
             existing_user = await cls.get_by_email(session, validated_data['email'])
             if existing_user:
                 logger.error("User with given email already exists.")
                 return None
+
+            # Check for existing nickname
+            if validated_data.get("nickname"):
+                existing_nickname = await cls.get_by_nickname(session, validated_data["nickname"])
+                if existing_nickname:
+                    logger.error("User with given nickname already exists.")
+                    return None
+
+            # Generate hashed password and prepare new user
             validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
             new_user = User(**validated_data)
-            new_user.verification_token = generate_verification_token()
-            new_nickname = generate_nickname()
-            while await cls.get_by_nickname(session, new_nickname):
+
+            # Ensure the auto-generated nickname is unique
+            if not validated_data.get("nickname"):
                 new_nickname = generate_nickname()
-            new_user.nickname = new_nickname
+                while await cls.get_by_nickname(session, new_nickname):
+                    new_nickname = generate_nickname()
+                new_user.nickname = new_nickname
+
+            # Add and commit new user
+            new_user.verification_token = generate_verification_token()
             session.add(new_user)
             await session.commit()
+
+            # Send verification email
             await email_service.send_verification_email(new_user)
-            
             return new_user
+
         except ValidationError as e:
             logger.error(f"Validation error during user creation: {e}")
             return None
@@ -76,22 +96,33 @@ class UserService:
     @classmethod
     async def update(cls, session: AsyncSession, user_id: UUID, update_data: Dict[str, str]) -> Optional[User]:
         try:
-            # validated_data = UserUpdate(**update_data).dict(exclude_unset=True)
             validated_data = UserUpdate(**update_data).dict(exclude_unset=True)
 
+            # Check for nickname uniqueness if nickname is being updated
+            if "nickname" in validated_data:
+                existing_nickname = await cls.get_by_nickname(session, validated_data["nickname"])
+                if existing_nickname and existing_nickname.id != user_id:
+                    logger.error("User with given nickname already exists.")
+                    return None
+
+            # Hash the password if being updated
             if 'password' in validated_data:
                 validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
+
+            # Update the user
             query = update(User).where(User.id == user_id).values(**validated_data).execution_options(synchronize_session="fetch")
             await cls._execute_query(session, query)
+
             updated_user = await cls.get_by_id(session, user_id)
             if updated_user:
                 session.refresh(updated_user)  # Explicitly refresh the updated user object
                 logger.info(f"User {user_id} updated successfully.")
                 return updated_user
-            else:
-                logger.error(f"User {user_id} not found after update attempt.")
+
+            logger.error(f"User {user_id} not found after update attempt.")
             return None
-        except Exception as e:  # Broad exception handling for debugging
+
+        except Exception as e:
             logger.error(f"Error during user update: {e}")
             return None
 
