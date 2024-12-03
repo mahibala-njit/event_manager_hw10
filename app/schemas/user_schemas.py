@@ -28,6 +28,7 @@ def validate_nickname(value: str) -> str:
     - Must start with a letter.
     - Must be 3-30 characters long.
     - Can only contain alphanumeric characters, underscores, or hyphens.
+    - Uniqueness is enforced at the service layer and model
     """
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]{2,29}$", value):
         raise ValueError(

@@ -86,7 +86,16 @@ async def update_user(user_id: UUID, user_update: UserUpdate, request: Request, 
     - **user_id**: UUID of the user to update.
     - **user_update**: UserUpdate model with updated user information.
     """
+    # Convert update data
     user_data = user_update.model_dump(exclude_unset=True)
+
+    # Check for nickname uniqueness
+    if "nickname" in user_data:
+        existing_user_with_nickname = await UserService.get_by_nickname(db, user_data["nickname"])
+        if existing_user_with_nickname and existing_user_with_nickname.id != user_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nickname already exists")
+
+    # Update the user
     updated_user = await UserService.update(db, user_id, user_data)
     if not updated_user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -107,7 +116,6 @@ async def update_user(user_id: UUID, user_update: UserUpdate, request: Request, 
         links=create_user_links(updated_user.id, request)
     )
 
-
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, name="delete_user", tags=["User Management Requires (Admin or Manager Roles)"])
 async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme), current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))):
     """
@@ -119,8 +127,6 @@ async def delete_user(user_id: UUID, db: AsyncSession = Depends(get_db), token: 
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
 
 @router.post("/users/", response_model=UserResponse, status_code=status.HTTP_201_CREATED, tags=["User Management Requires (Admin or Manager Roles)"], name="create_user")
 async def create_user(user: UserCreate, request: Request, db: AsyncSession = Depends(get_db), email_service: EmailService = Depends(get_email_service), token: str = Depends(oauth2_scheme), current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))):
@@ -139,14 +145,20 @@ async def create_user(user: UserCreate, request: Request, db: AsyncSession = Dep
     Returns:
     - UserResponse: The newly created user's information along with navigation links.
     """
+    # Check for existing email
     existing_user = await UserService.get_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already exists")
     
+    # Check for existing nickname
+    if user.nickname:
+        existing_nickname = await UserService.get_by_nickname(db, user.nickname)
+        if existing_nickname:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nickname already exists")
+    
     created_user = await UserService.create(db, user.model_dump(), email_service)
     if not created_user:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user")
-    
     
     return UserResponse.model_construct(
         id=created_user.id,

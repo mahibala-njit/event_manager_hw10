@@ -52,6 +52,17 @@ def email_service():
     email_service = EmailService(template_manager=template_manager)
     return email_service
 
+@pytest.fixture
+async def another_user(db_session: AsyncSession):
+    """Fixture for another existing user."""
+    another_user = User(
+        email="anotheruser@example.com",
+        hashed_password=hash_password("AnotherPassword123!"),  # Properly hash the password
+        nickname="another_nickname"
+    )
+    db_session.add(another_user)
+    await db_session.commit()
+    return another_user
 
 # this is what creates the http client for your api tests
 @pytest.fixture(scope="function")
@@ -124,7 +135,7 @@ async def user(db_session):
     db_session.add(user)
     await db_session.commit()
     return user
-
+    
 @pytest.fixture(scope="function")
 async def verified_user(db_session):
     user_data = {
