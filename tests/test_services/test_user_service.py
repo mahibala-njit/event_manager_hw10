@@ -9,6 +9,8 @@ from app.services.user_service import UserService
 from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.utils.security import validate_password
 from app.utils.security import hash_password, verify_password
+from app.dependencies import get_settings
+    
 
 pytestmark = pytest.mark.asyncio
 
@@ -318,3 +320,16 @@ def test_invalid_password_verification():
 
     # Ensure wrong password does not match
     assert not verify_password(wrong_password, hashed_password)
+
+@pytest.mark.asyncio
+async def test_login_user_locked_account(db_session, locked_user):
+    """Test login fails for locked accounts."""
+    result = await UserService.login_user(db_session, locked_user.nickname, "correctpassword")
+    assert result is None, "Login should fail for locked accounts"
+
+@pytest.mark.asyncio
+async def test_reset_password_for_nonexistent_user(db_session):
+    """Test reset_password fails for non-existent users."""
+    success = await UserService.reset_password(db_session, "non-existent-id", "NewPassword123!")
+    assert success is False, "Reset should fail for non-existent users"
+    

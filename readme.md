@@ -47,6 +47,12 @@ The project has been deployed as a Docker image for easy containerized setup. Yo
 
 ![alt text](image-9.png)
 
+# Test Coverage 
+
+Test coverage is 90%
+
+![alt text](image-10.png)
+
 # Reflection Section
 
 ## Reflection

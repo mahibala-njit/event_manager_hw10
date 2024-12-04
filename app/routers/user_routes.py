@@ -290,32 +290,11 @@ async def update_user_profile_picture(
 
     # Perform the update
     updated_user = await UserService.update(db, user_id, {"profile_picture_url": picture_data.profile_picture_url})
-    return UserResponse.model_validate(updated_user)
-
-@router.put("/users/{user_id}/profile", response_model=UserResponse, name="update_user_profile", tags=["User Profile"])
-async def update_user_profile(
-    user_id: UUID,
-    profile_data: UserUpdate,
-    db: AsyncSession = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
-    current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))
-):
-    """
-    Bulk update user profile fields like bio, profile picture URL, LinkedIn, or GitHub.
-    """
-    user_data = profile_data.dict(exclude_unset=True)
-    if not user_data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update.")
     
-    updated_user = await UserService.update(db, user_id, user_data)
     if not updated_user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    return UserResponse.model_construct(
-        id=updated_user.id,
-        bio=updated_user.bio,
-        profile_picture_url=updated_user.profile_picture_url,
-        linkedin_profile_url=updated_user.linkedin_profile_url,
-        github_profile_url=updated_user.github_profile_url,
-        updated_at=updated_user.updated_at,
-    )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid profile picture URL or other update issues."
+        )
+    
+    return UserResponse.model_validate(updated_user)
