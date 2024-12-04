@@ -135,3 +135,49 @@ Reran the tests using the below and the entire pytests, all ran successfully.
 docker compose exec fastapi pytest tests
 ```
 ![alt text](image-4.png)
+
+## Issue 4 : Enhance Password Validation
+
+1. **Description**: Implement robust password validation mechanisms to ensure adherence to security best practices. This includes:
+
+- Enforcing a minimum password length.
+- Requiring complexity in passwords, such as a mix of uppercase letters, lowercase letters, numbers, and special characters.
+- Properly hashing passwords before storing them in the database.
+- This enhancement protects user accounts by mitigating the risk of unauthorized access and enhances the overall security of the application.
+
+2. **Expected Outcome**: All tests to ensure the below enhanced password validation logic should pass.
+
+To enhance security, all user passwords must meet the following criteria:
+- **Minimum Length**: Password must be at least 8 characters long.
+- **Uppercase Letters**: Password must contain at least one uppercase letter (A-Z).
+- **Lowercase Letters**: Password must contain at least one lowercase letter (a-z).
+- **Digits**: Password must contain at least one numeric digit (0-9).
+- **Special Characters**: Password must include at least one special character (!@#$%^&*(), etc.).
+- **No Spaces**: Password must not contain spaces.
+
+### Example
+
+| Password          | Validity    | Reason                                     |
+|-------------------|-------------|--------------------------------------------|
+| `StrongPass1!`    | ✅ Valid    | Meets all criteria                         |
+| `short1!`         | ❌ Invalid  | Less than 8 characters                     |
+| `alllowercase1!`  | ❌ Invalid  | Missing an uppercase letter                |
+| `ALLUPPERCASE1!`  | ❌ Invalid  | Missing a lowercase letter                 |
+| `NoNumbers!`      | ❌ Invalid  | Missing a digit                            |
+| `NoSpecials1`     | ❌ Invalid  | Missing a special character                |
+| `Has Space1!`     | ❌ Invalid  | Contains spaces                            |
+
+- Error Handling: Informative error messages are displayed when a password fails validation.
+
+- Secure Storage: Passwords are hashed using a strong algorithm (e.g., bcrypt) before being stored in the database.
+
+3. **Resolution Steps**: 
+
+- Updated the validate_password function in app/utils/security.py to enforce stricter rules (minimum length, special characters, uppercase, lowercase, and numeric digits).
+
+4. **Tests**:
+Reran the tests using the below and the entire pytests, all ran successfully.
+```bash
+docker compose exec fastapi pytest tests
+```
+![alt text](image-5.png)
