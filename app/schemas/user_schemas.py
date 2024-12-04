@@ -37,6 +37,12 @@ def validate_nickname(value: str) -> str:
         )
     return value
 
+class UpdateBioRequest(BaseModel):
+    bio: str = Field(..., max_length=500, description="The new bio for the user (max length: 500 characters).",example="Intern software developer with a bachelor degree")
+
+class UpdateProfilePictureRequest(BaseModel):
+    profile_picture_url: str = Field(..., description="The new profile picture URL.", example="https://example.com/profiles/john_new.jpg")
+
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
     nickname: Optional[str] = Field(

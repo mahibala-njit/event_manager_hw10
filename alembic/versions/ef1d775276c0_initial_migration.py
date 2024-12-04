@@ -9,7 +9,12 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from app.dependencies import get_settings
+from app.utils.security import hash_password
+from sqlalchemy.sql import text
+import uuid
 
+settings = get_settings()
 
 # revision identifiers, used by Alembic.
 revision: str = 'ef1d775276c0'
@@ -45,6 +50,31 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_nickname'), 'users', ['nickname'], unique=True)
+
+    # Insert an admin record into the users table
+    op.execute(
+        f"""
+        INSERT INTO users (
+            id,
+            nickname,
+            email,
+            hashed_password,
+            role,
+            email_verified,
+            created_at,
+            updated_at
+        ) VALUES (
+            '{str(uuid.uuid4())}',
+            'admin',
+            '{settings.admin_email}',
+            '{hash_password(settings.admin_password)}',
+            'ADMIN',
+            TRUE,
+            now(),
+            now()
+        )
+        """
+    )
     # ### end Alembic commands ###
 
 
@@ -54,3 +84,4 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
     # ### end Alembic commands ###
+
