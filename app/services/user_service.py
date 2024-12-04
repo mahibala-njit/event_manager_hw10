@@ -10,7 +10,7 @@ from app.dependencies import get_email_service, get_settings
 from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate
 from app.utils.nickname_gen import generate_nickname
-from app.utils.security import generate_verification_token, hash_password, verify_password
+from app.utils.security import generate_verification_token, hash_password, verify_password, validate_password
 from uuid import UUID
 from app.services.email_service import EmailService
 from app.models.user_model import UserRole
@@ -69,8 +69,16 @@ class UserService:
                     logger.error("User with given nickname already exists.")
                     return None
 
-            # Generate hashed password and prepare new user
-            validated_data['hashed_password'] = hash_password(validated_data.pop('password'))
+            # Validate and hash password
+            password = validated_data.pop('password')
+            try:
+                validate_password(password)  # Ensures password meets security criteria
+            except ValueError as e:
+                logger.error(f"Password validation failed: {e}")
+                return None
+            validated_data['hashed_password'] = hash_password(password)
+
+            # Prepare new user
             new_user = User(**validated_data)
 
             # Ensure the auto-generated nickname is unique
