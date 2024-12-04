@@ -27,15 +27,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_user, get_db, get_email_service, require_role
 from app.schemas.pagination_schema import EnhancedPagination
 from app.schemas.token_schema import TokenResponse
-from app.schemas.user_schemas import LoginRequest, UserBase, UserCreate, UserListResponse, UserResponse, UserUpdate
+from app.schemas.user_schemas import LoginRequest, UserBase, UserCreate, UserListResponse, UserResponse, UserUpdate, UpdateBioRequest, UpdateProfilePictureRequest
 from app.services.user_service import UserService
 from app.services.jwt_service import create_access_token
 from app.utils.link_generation import create_user_links, generate_pagination_links
 from app.dependencies import get_settings
 from app.services.email_service import EmailService
-router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+import logging
+
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login/")
+
 @router.get("/users/{user_id}", response_model=UserResponse, name="get_user", tags=["User Management Requires (Admin or Manager Roles)"])
 async def get_user(user_id: UUID, request: Request, db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme), current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))):
     """
@@ -211,37 +216,28 @@ async def register(user_data: UserCreate, session: AsyncSession = Depends(get_db
 
 @router.post("/login/", response_model=TokenResponse, tags=["Login and Registration"])
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
-    if await UserService.is_account_locked(session, form_data.username):
-        raise HTTPException(status_code=400, detail="Account locked due to too many failed login attempts.")
+    try:
+        if await UserService.is_account_locked(session, form_data.username):
+            raise HTTPException(status_code=400, detail="Account locked due to too many failed login attempts.")
+        logger.info(f"Checking username {form_data.username} ")
 
-    user = await UserService.login_user(session, form_data.username, form_data.password)
-    if user:
-        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-
-        access_token = create_access_token(
-            data={"sub": user.email, "role": str(user.role.name)},
-            expires_delta=access_token_expires
-        )
-
-        return {"access_token": access_token, "token_type": "bearer"}
-    raise HTTPException(status_code=401, detail="Incorrect email or password.")
-
-@router.post("/login/", include_in_schema=False, response_model=TokenResponse, tags=["Login and Registration"])
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
-    if await UserService.is_account_locked(session, form_data.username):
-        raise HTTPException(status_code=400, detail="Account locked due to too many failed login attempts.")
-
-    user = await UserService.login_user(session, form_data.username, form_data.password)
-    if user:
-        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-
-        access_token = create_access_token(
-            data={"sub": user.email, "role": str(user.role.name)},
-            expires_delta=access_token_expires
-        )
-
-        return {"access_token": access_token, "token_type": "bearer"}
-    raise HTTPException(status_code=401, detail="Incorrect email or password.")
+        user = await UserService.login_user(session, form_data.username, form_data.password)
+        logger.info(f"User : {user} ")
+        if user:
+            access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+            access_token = create_access_token(
+                data={"sub": user.email, "role": str(user.role.name)},
+                expires_delta=access_token_expires
+            )
+            return {"access_token": access_token, "token_type": "bearer"}
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    except HTTPException as e:
+        # Re-raise HTTP exceptions as-is
+        raise e
+    except Exception as e:
+        # Log unexpected errors and return a generic 500 response
+        logger.error(f"Unexpected error during login: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
 
 
 @router.get("/verify-email/{user_id}/{token}", status_code=status.HTTP_200_OK, name="verify_email", tags=["Login and Registration"])
@@ -255,3 +251,71 @@ async def verify_email(user_id: UUID, token: str, db: AsyncSession = Depends(get
     if await UserService.verify_email_with_token(db, user_id, token):
         return {"message": "Email verified successfully"}
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
+
+@router.patch("/users/{user_id}/bio", response_model=UserResponse, name="update_user_bio", tags=["User Profile"])
+async def update_user_bio(
+    user_id: UUID,
+    bio_data: dict,
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))
+):
+    if not bio_data.get("bio"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bio field is required.")
+    
+    updated_user = await UserService.update(db, user_id, {"bio": bio_data["bio"]})
+    if not updated_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Exclude updated_at from the returned response
+    return UserResponse.model_validate(updated_user)
+
+
+
+@router.patch("/users/{user_id}/profile-picture", response_model=UserResponse, name="update_user_profile_picture", tags=["User Profile"])
+async def update_user_profile_picture(
+    user_id: UUID,
+    picture_data: UpdateProfilePictureRequest,  # Expecting a proper JSON body
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))
+):
+    """
+    Update the user's profile picture URL.
+    """
+    # Check if the user exists
+    user = await UserService.get_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # Perform the update
+    updated_user = await UserService.update(db, user_id, {"profile_picture_url": picture_data.profile_picture_url})
+    return UserResponse.model_validate(updated_user)
+
+@router.put("/users/{user_id}/profile", response_model=UserResponse, name="update_user_profile", tags=["User Profile"])
+async def update_user_profile(
+    user_id: UUID,
+    profile_data: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+    current_user: dict = Depends(require_role(["ADMIN", "MANAGER"]))
+):
+    """
+    Bulk update user profile fields like bio, profile picture URL, LinkedIn, or GitHub.
+    """
+    user_data = profile_data.dict(exclude_unset=True)
+    if not user_data:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields provided for update.")
+    
+    updated_user = await UserService.update(db, user_id, user_data)
+    if not updated_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    return UserResponse.model_construct(
+        id=updated_user.id,
+        bio=updated_user.bio,
+        profile_picture_url=updated_user.profile_picture_url,
+        linkedin_profile_url=updated_user.linkedin_profile_url,
+        github_profile_url=updated_user.github_profile_url,
+        updated_at=updated_user.updated_at,
+    )

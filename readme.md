@@ -20,7 +20,47 @@ For running pytests:
 docker compose exec fastapi pytest tests
 ```
 
-# Issues
+# Links to Closed Issues
+  
+## Closed Issues
+Below are the links to the closed issues that provide insights into the work done for this project:
+Details related to each issue can be found below in another section
+
+1. [Analyze and Fix Pytest Errors](https://github.com/mahibala-njit/event_manager_hw10/issues/1)
+2. [Fix SMTP Server Configuration Issues](https://github.com/mahibala-njit/event_manager_hw10/issues/2)
+3. [Enhance Username Validation](https://github.com/mahibala-njit/event_manager_hw10/issues/4)
+4. [Ensure Username Uniqueness](https://github.com/mahibala-njit/event_manager_hw10/issues/6)
+5. [Enhance Password Validation](https://github.com/mahibala-njit/event_manager_hw10/issues/8)
+6. [Edge Cases for Updating Profile Fields](https://github.com/mahibala-njit/event_manager_hw10/issues/10)
+7. [Issue with Authorize using Swagger](https://github.com/mahibala-njit/event_manager_hw10/issues/11)
+
+
+# Link to the Docker Image
+
+## Docker Image
+
+The project has been deployed as a Docker image for easy containerized setup. You can find the image on DockerHub:
+
+[HW10 Event Manager Docker Image](https://hub.docker.com/repository/docker/mahibala/event_manager_hw10/tags)
+
+# Link to the Docker Image
+
+![alt text](image-9.png)
+
+# Reflection Section
+
+## Reflection
+This assignment provided a comprehensive experience in building, enhancing, and maintaining a robust API application using FastAPI, Docker, and GitHub workflows. It required not only technical expertise but also an understanding of collaborative development processes, testing strategies, and DevOps workflows.
+
+One of the key takeaways was the ability to identify and resolve issues systematically. The process of creating issues, documenting them, and implementing solutions gave me a structured approach to problem-solving. I enhanced my understanding of FastAPI by implementing new endpoints and improving existing ones, such as handling edge cases for user profile updates and ensuring robust authentication and authorization mechanisms. This required a detailed focus on validation logic, efficient database interactions, and seamless API design.
+
+A significant challenge was ensuring that all test cases passed successfully after making changes to the codebase. Writing meaningful test cases to cover edge scenarios and debugging test failures improved my proficiency with pytest. Additionally, integrating Docker for containerization and pushing images to DockerHub provided insights into modern DevOps practices, reinforcing the importance of reproducibility and portability in application development.
+
+Through this assignment, I also gained a deeper appreciation for collaborative development workflows. Resolving merge conflicts, following Git best practices, and ensuring clear commit messages were integral to maintaining a clean and understandable codebase. Documenting issues and solutions helped me communicate effectively and laid the groundwork for future maintenance.
+
+Overall, this project enhanced my technical skills in API development and testing while giving me hands-on experience with project management and team collaboration in a software development lifecycle.
+
+# Issue Details
 
 ## Issue 1 : Analyze and fix pytest errors
 
@@ -115,28 +155,25 @@ docker compose exec fastapi pytest tests/test_schemas/test_user_schemas.py
 
 ## Issue 4 : Ensure Username Uniqueness
 
-1. **Description**: The system must ensure that every username (or nickname) within the application is unique. When creating or updating a user, duplicate nicknames must be prevented. Failure to enforce this uniqueness can lead to conflicting user profiles, incorrect authentication behavior, and poor user experience.
+1. **Description**: While enhancing the validation for usernames (nicknames), it was noted that the system did not enforce uniqueness. This could lead to duplicate usernames in the database, which could cause confusion, security concerns, or data integrity issues.
 
 2. **Expected Outcome**:
 
-- User Creation: If a user attempts to register with a nickname already in use, the API should return a 400 Bad Request error with an appropriate error message ("Nickname already exists"). A unique nickname should be auto-generated if none is provided during registration.
-- User Update: If an update includes a duplicate nickname, the API should reject the request with a 400 Bad Request error. If the nickname belongs to the user making the update, it should allow the operation.
-- Database Enforcement: The nickname field in the database must be unique, ensuring no duplicates can exist at the database level. This was already implemented.
+- The system should prevent duplicate nicknames at both the application and database levels.
+- Any attempt to create or update a user with a duplicate nickname should result in an appropriate error message.
 
 3. **Resolution Steps**: 
 
-- In the UserService.create method: Check if the nickname exists before creating a new user. If a duplicate is found, log the error and return a 400 error.
-- In the UserService.update method: Ensure the new nickname doesn’t belong to another user. Allow the operation if the nickname belongs to the same user being updated.
-- Adjust API Endpoints: User Creation: Validate nickname uniqueness and return an appropriate error response if a duplicate is detected. User Update: Ensure nickname uniqueness before applying updates.
+- Modified user_routes.py, user_schemas.py and user_service.py to make sure the uniqueness checks related logic are added
 
 4. **Tests**:
 Reran the tests using the below and the entire pytests, all ran successfully.
 ```bash
-docker compose exec fastapi pytest tests
+docker compose exec fastapi pytest tests/test_schemas/test_user_schemas.py
 ```
-![alt text](image-4.png)
+![alt text](image-3.png)
 
-## Issue 4 : Enhance Password Validation
+## Issue 5 : Enhance Password Validation
 
 1. **Description**: Implement robust password validation mechanisms to ensure adherence to security best practices. This includes:
 
@@ -181,3 +218,64 @@ Reran the tests using the below and the entire pytests, all ran successfully.
 docker compose exec fastapi pytest tests
 ```
 ![alt text](image-5.png)
+
+## Issue 6 : Edge Cases for Updating Profile Fields
+
+1. **Description**:  Application lacked dedicated endpoints for updating specific user profile fields like bio and profile_picture_url, so this can give the flexibility to just update the relevant information. Also ensure below are handled for the endpoints
+
+- Enforce validation for the bio field, ensuring its length does not exceed the specified limit.
+- Add validation for profile_picture_url to reject invalid or empty values.
+- Restrict access to these updates to authorized roles (ADMIN and MANAGER).
+- Return appropriate error responses for invalid input or non-existent users.
+
+2. **Expected Outcome**:
+
+- Provide dedicated PATCH endpoints for individual updates:
+        - update_user_bio to update the bio field.
+        - update_user_profile_picture to update the profile_picture_url field.
+- Validate input for each field:
+        - Reject overly long bio values (greater than 500 characters) with a 422 Unprocessable Entity error.
+        - Reject invalid or empty profile_picture_url with a 400 Bad Request error.
+- Ensure role-based access control, allowing only ADMIN and MANAGER roles to perform updates.
+- Return clear and actionable error messages for invalid input or non-existent users.
+
+3. **Resolution Steps**: 
+
+- Patch Endpoints Added : 
+    - PATCH /users/{user_id}/bio: For updating the bio field with validation for length and presence.
+    - PATCH /users/{user_id}/profile-picture: For updating the profile_picture_url field with validation for presence and format.
+- Validation Logic : 
+    - Added a 500-character limit check for the bio field.
+    - Enforced validation for profile_picture_url to ensure it is non-empty.
+- Access Control and Error Handling : 
+    - Implemented role-based access control to allow only ADMIN and MANAGER roles to update these fields.
+    - Returned appropriate error messages for invalid input or non-existent users.
+
+4. **Tests**:
+Add new tests specific to the two endpoints. Run these tests to ensure the new endpoints are working as expected.
+```bash
+docker compose exec fastapi pytest tests/test_api/test_user_routes.py
+```
+![alt text](image-6.png)
+
+## Issue 7 : Fix Swagger Authorization and Login Endpoint Issues
+
+1. **Description**: The /login logic in user_routes.py was repeated multiple times, making the code redundant and harder to maintain. Additionally, authenticating as an admin user through Swagger (Authorize button) was not functioning as expected. This created challenges in testing and using the API securely.
+
+2. **Expected Outcome**: All tests to ensure the below enhanced password validation logic should pass.
+
+- Swagger Authorization: Admin users should be able to authenticate successfully via Swagger using the Authorize button.
+- Login Endpoint: /login endpoint should handle authentication securely and consistently, without redundant code.
+- Tests for the /login endpoint should succeed, ensuring its reliability.
+
+3. **Resolution Steps**: 
+
+- To fix the admin login issue, modified the alembic script to insert an admin record in to the table to make sure there is way to authorize as admin users to test the swagger endpoints
+- To make the same working, had to change the user_routes.py to remove the redudancy issues with /login endpoint
+
+4. **Tests**:
+Add new tests to test the expected outcome. Run all tests to make sure the code works as expected
+```bash
+docker compose exec fastapi pytest tests
+```
+![alt text](image-7.png)
